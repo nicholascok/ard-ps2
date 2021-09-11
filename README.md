@@ -19,7 +19,7 @@ Similarly, you can send a key break code as follows:
 You can also send a keypress (make, delay, then break) as follows:  
 `send_key_press(<KEY>, <DELAY>);`  
   
-Where `<TIME>` is the delay between sending make and break codes for the key `<KEY>`.  
+Where `<DELAY>` is the delay between sending make and break codes for the key `<KEY>`.  
   
 The value of `<KEY>` can be any of the following:  
   
