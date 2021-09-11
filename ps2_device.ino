@@ -201,3 +201,10 @@ int send_key_press(int _k, int _t) {
 
   return 0;
 }
+
+void init(int _p_dta, int _p_clk) {
+  P_DTA = _p_dta;
+  P_CLK = _p_clk;
+  pinMode(P_DTA, INPUT_PULLUP);
+  pinMode(P_CLK, INPUT_PULLUP);
+}
