@@ -14,7 +14,7 @@ when the arduino is acting as the device (ps2_device.ino), you can send a key ma
 `send_key_make(<KEY>);`  
   
 Similarly, you can send a key break code as follows:  
-`send_key_make(<KEY>);`  
+`send_key_break(<KEY>);`  
   
 You can also send a keypress (make, delay, then break) as follows:  
 `send_key_press(<KEY>, <DELAY>);`  
