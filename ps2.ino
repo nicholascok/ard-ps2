@@ -1,8 +1,31 @@
+#include <LiquidCrystal.h>
+
 #define P_CLK 3
 #define P_DTA 2
 
+#define SEND_LOW() {dsp(P_DTA); delayMicroseconds(CLK_HAF_TIME); dsp(P_CLK); delayMicroseconds(CLK_FUL_TIME); enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);}
+#define SEND_HIGH() {enp(P_DTA); delayMicroseconds(CLK_HAF_TIME); dsp(P_CLK); delayMicroseconds(CLK_FUL_TIME); enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);}
+
+#define TIMEOUT(EXPRESSION, TIME, CODE) since = millis(); while (EXPRESSION) if (millis() - since > TIME) {CODE};
+
+#define WAIT_HIGH(PIN) {since = millis(); while (digitalRead(PIN) != HIGH) if (millis() - since > WR_TIMEOUT) return -1;} /* timeout */
+#define WAIT_LOW(PIN) {since = millis(); while (digitalRead(PIN) != LOW) if (millis() - since > WR_TIMEOUT) return -1;} /* timeout */
+#define WAIT_FOR_NEXT_LOW() WAIT_HIGH(P_CLK) WAIT_LOW(P_CLK)
+
+#define CLK_FUL_TIME 40
+#define CLK_HAF_TIME 20
+
+#define WRITE_DELAY 60
+
+#define WR_TIMEOUT 20
+#define RD_TIMEOUT 20
+
 typedef unsigned char BYTE;
 typedef unsigned long time_t;
+
+// init LiquicCrystal
+const int rs = 12, en = 11, d4 = 10, d5 = 9, d6 = 8, d7 = 7;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // keys with single-byte scancodes
 enum {
@@ -31,7 +54,7 @@ enum {
   KEY_8     = 0x3E,
   KEY_9     = 0x46,
   KEY_0     = 0x45,
-  KEY_BCKSP = 0x66,
+  KEY_BKSPC = 0x66,
   KEY_TAB   = 0x0D,
   KEY_Q     = 0x15,
   KEY_W     = 0x1D,
@@ -117,16 +140,6 @@ enum {
   KEY_BREAK = 0xF1
 };
 
-#define SEND_LOW() {dsp(P_DTA); delayMicroseconds(CLK_HAF_TIME); dsp(P_CLK); delayMicroseconds(CLK_FUL_TIME); enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);}
-#define SEND_HIGH() {enp(P_DTA); delayMicroseconds(CLK_HAF_TIME); dsp(P_CLK); delayMicroseconds(CLK_FUL_TIME); enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);}
-
-#define CLK_FUL_TIME 40
-#define CLK_HAF_TIME 20
-
-#define WRITE_DELAY 60
-
-#define TIMEOUT 500
-
 time_t write_last;
 
 void enp(int _p) {
@@ -140,7 +153,7 @@ void dsp(int _p) {
   pinMode(_p, OUTPUT);
 }
 
-int write(BYTE _b) {
+int write_as_device(BYTE _b) {
   // debug
   Serial.print("writing data: 0x");
   Serial.println(_b, HEX);
@@ -154,10 +167,10 @@ int write(BYTE _b) {
   // if data line is low and clock is high the host is requesting to send data
   if (digitalRead(P_DTA) == LOW) return -1;
   
-  bool parity =
+  bool parity = (
     _b & 0x80 + _b & 0x40 + _b & 0x20 +
     _b & 0x10 + _b & 0x08 + _b & 0x04 +
-    _b & 0x02 + _b & 0x01;
+    _b & 0x02 + _b & 0x01) % 2;
 
   // send start bit
   SEND_LOW()
@@ -169,8 +182,8 @@ int write(BYTE _b) {
   }
 
   // send parity bit
-  if (parity) SEND_HIGH()
-  else SEND_LOW()
+  if (parity) SEND_LOW()
+  else SEND_HIGH()
   
   // send stop bit
   SEND_HIGH()
@@ -187,7 +200,7 @@ void init_keyboard(void) {
 
 void init_mouse(void) {
   // send device id as mouse with scroll wheel (device id 0x03)
-  while(write(0x03));
+  while(write_as_device(0x03));
   return;
 }
 
@@ -206,49 +219,49 @@ int send_key_make(int _k) {
     case KEY_RWIN: case KEY_LEFT: case KEY_DOWN:
     case KEY_INS:
       // write extended prefix byte
-      wrstat = write(0xE0);
+      wrstat = write_as_device(0xE0);
       
       // verify write and send key code
-      if (!wrstat) write(_k); else return -1;
+      if (!wrstat) write_as_device(_k); else return -1;
       
       // verify write
       if (wrstat) return -1;
       break;
     case KEY_PRINT:
       // write extended prefix byte
-      wrstat = write(0xE0);
+      wrstat = write_as_device(0xE0);
       
       // verify write and send key code (part I)
-      if (!wrstat) write(0x12); else return -1;
+      if (!wrstat) write_as_device(0x12); else return -1;
       
       // verify write and send extended prefix byte
-      if (!wrstat) write(0xE0); else return -1;
+      if (!wrstat) write_as_device(0xE0); else return -1;
       
       // verify write and send key code (part II)
-      if (!wrstat) write(0x7C); else return -1;
+      if (!wrstat) write_as_device(0x7C); else return -1;
       
       // verify write
       if (wrstat) return -1;
       break;
     case KEY_BREAK:
       // god knows
-      wrstat = write(0xE1);
+      wrstat = write_as_device(0xE1);
       
       // verify writes and send more
-      if (!wrstat) write(0x14); else return -1;
-      if (!wrstat) write(0x77); else return -1;
-      if (!wrstat) write(0xE1); else return -1;
-      if (!wrstat) write(0xF0); else return -1;
-      if (!wrstat) write(0x14); else return -1;
-      if (!wrstat) write(0xE0); else return -1;
-      if (!wrstat) write(0x77); else return -1;
+      if (!wrstat) write_as_device(0x14); else return -1;
+      if (!wrstat) write_as_device(0x77); else return -1;
+      if (!wrstat) write_as_device(0xE1); else return -1;
+      if (!wrstat) write_as_device(0xF0); else return -1;
+      if (!wrstat) write_as_device(0x14); else return -1;
+      if (!wrstat) write_as_device(0xE0); else return -1;
+      if (!wrstat) write_as_device(0x77); else return -1;
       
       // verify write
       if (wrstat) return -1;
       break;
     default:
         // send key code
-        wrstat = write(_k);
+        wrstat = write_as_device(_k);
         
         // verify write
         if (wrstat) return -1;
@@ -274,45 +287,45 @@ int send_key_break(int _k) {
     case KEY_RWIN: case KEY_LEFT: case KEY_DOWN:
     case KEY_INS:
       // write extended prefix byte
-      wrstat = write(0xE0);
+      wrstat = write_as_device(0xE0);
       
       // verify write and send break prefix byte
-      if (!wrstat) write(0xF0); else return -1;
+      if (!wrstat) write_as_device(0xF0); else return -1;
       
       // verify write and send key code
-      if (!wrstat) write(_k); else return -1;
+      if (!wrstat) write_as_device(_k); else return -1;
       
       // verify write
       if (wrstat) return -1;
       break;
     case KEY_PRINT:
       // write extended prefix byte
-      wrstat = write(0xE0);
+      wrstat = write_as_device(0xE0);
       
       // verify write and send break prefix byte
-      if (!wrstat) write(0xF0); else return -1;
+      if (!wrstat) write_as_device(0xF0); else return -1;
       
       // verify write and send key code (part I)
-      if (!wrstat) write(0x73); else return -1;
+      if (!wrstat) write_as_device(0x73); else return -1;
       
       // verify write and send extended prefix byte
-      if (!wrstat) write(0xE0); else return -1;
+      if (!wrstat) write_as_device(0xE0); else return -1;
       
       // verify write and send break prefix byte
-      if (!wrstat) write(0xF0); else return -1;
+      if (!wrstat) write_as_device(0xF0); else return -1;
       
-      // verify write and send key code (part II)
-      if (!wrstat) write(0x12); else return -1;
+      // verify write and HIGHsend key code (part II)
+      if (!wrstat) write_as_device(0x12); else return -1;
       
       // verify write
       if (wrstat) return -1;
       break;
     default:
       // write break prefix byte
-      wrstat = write(0xF0);
+      wrstat = write_as_device(0xF0);
       
       // verify write and send key code
-      if (!wrstat) write(_k); else return -1;
+      if (!wrstat) write_as_device(_k); else return -1;
       
       // verify write
       if (wrstat) return -1;
@@ -336,35 +349,363 @@ int send_key_press(int _k, int _t) {
   return 0;
 }
 
+int read_as_host(BYTE* _b) {
+  pinMode(P_CLK, INPUT_PULLUP);
+  pinMode(P_CLK, INPUT_PULLUP);
+  
+  time_t since;
+  bool parity = 1;
+  BYTE b = 0;
+  
+  WAIT_LOW(P_CLK)
+  
+  if (digitalRead(P_DTA) != LOW) return -2; // invalid start bit recieved
+  
+  for (int state, i = 0; i < 8; i++) {
+    WAIT_FOR_NEXT_LOW()
+    state = digitalRead(P_DTA);
+    
+    if (state == HIGH)
+      parity = !parity,
+      b |= 0x01 << i;
+  }
+  
+  WAIT_FOR_NEXT_LOW()
+  
+  if (digitalRead(P_DTA) != parity) return -4; // invalid parity bit recieved
+  
+  WAIT_FOR_NEXT_LOW()
+  
+  if (digitalRead(P_DTA) != HIGH) return -5; // invalid stop bit recieved
+  
+  *_b = b;
+  
+  return 0;
+}
+
+int write_as_host(BYTE _b) {
+  bool parity = (
+    _b & 0x80 + _b & 0x40 + _b & 0x20 +
+    _b & 0x10 + _b & 0x08 + _b & 0x04 +
+    _b & 0x02 + _b & 0x01) % 2;
+  
+  time_t since;
+  
+  pinMode(P_CLK, OUTPUT);
+  pinMode(P_DTA, OUTPUT);
+  
+  // pull clock low for 100us (request to send)
+  digitalWrite(P_CLK, LOW);
+  delayMicroseconds(100);
+  
+  // pull data low and release clock
+  digitalWrite(P_DTA, LOW);
+  digitalWrite(P_CLK, HIGH);
+  
+  pinMode(P_CLK, INPUT_PULLUP);
+  
+  // wait for device to pull clock low (acknowledgement)
+  WAIT_LOW(P_CLK)
+  
+  // write data bits
+  for (int i = 0; i < 8; i++) {
+    if (_b & (0x01 << i)) digitalWrite(P_DTA, HIGH);
+    else digitalWrite(P_DTA, LOW);
+    WAIT_FOR_NEXT_LOW()
+  }
+  
+  // write parity bit
+  if (parity) digitalWrite(P_DTA, HIGH);
+  else digitalWrite(P_DTA, HIGH);
+  WAIT_FOR_NEXT_LOW()
+  
+  // release data line
+  digitalWrite(P_DTA, LOW);
+  
+  pinMode(P_DTA, INPUT_PULLUP);
+  
+  // wait for device to pull clock and data low
+  WAIT_LOW(P_DTA)
+  WAIT_LOW(P_CLK)
+  
+  // wait for device to release clock and data (return to idle state)
+  WAIT_HIGH(P_DTA)
+  WAIT_HIGH(P_CLK)
+
+  return 0;
+}
+
+int lcd_cursor_pos = 0;
+int lcd_line = 0;
+
 void setup() {
   Serial.begin(9600);
-  pinMode(P_DTA, OUTPUT);
-  pinMode(P_CLK, OUTPUT);
 
-  digitalWrite(P_CLK, HIGH);
-  digitalWrite(P_DTA, HIGH);
-
-  // set initial write time
-  write_last = micros();
+  // init LiquidCrystal
+  lcd.begin(8, 2);
+  lcd.cursor();
   
-  delay(500); // dealy for BAT (Basic Assurance Test) - not needed here
-  while (write(0xAA)); // send BAT complete signal to host
-
-  init_keyboard();
+  pinMode(P_DTA, INPUT_PULLUP);
+  pinMode(P_CLK, INPUT_PULLUP);
   
-  delay(TIMEOUT);
+  BYTE b = 0;
+  int err_count = -1;
+  time_t since;
   
-  while (send_key_press(KEY_F, 50));
-  delay(90);
-  while (send_key_press(KEY_O, 50));
-  delay(90);
-  while (send_key_press(KEY_X, 50));
-  delay(90);
-  while (send_key_press(KEY_LWIN, 50));
+  // look for BAT result from device
+  Serial.println("checking result of BAT");
+  
+  BAT_CHECK:
+  err_count++;
+  
+  Serial.print("NOTICE: attempt ");
+  Serial.print(err_count, DEC);
+  Serial.println(" out of 10.");
+  
+  if (err_count >= 10) {
+    Serial.println("failed to recieve response from device.");
+    Serial.println("attempting to continue anyway...");
+    return;
+  }
+  
+  TIMEOUT(read_as_host(&b), 1000,
+    Serial.println("recieved nothing: attempting reset...");
+    delay(500);
+    
+    TIMEOUT(write_as_host(0xFF), 1000,
+      Serial.println("write timed out: attempting to continue...");
+      goto BAT_CHECK_EXIT;
+    )
+    
+    Serial.println("reset request sent: looking for acknowledgement...");
+    
+    TIMEOUT(read_as_host(&b), 1000,
+      Serial.println("recieved nothing: attempting to continue...");
+      goto BAT_CHECK_EXIT;
+    )
+    
+    Serial.println("acknowledged...");
+    
+    goto BAT_CHECK;
+  )
+  
+  Serial.print("recieved byte ");
+  Serial.print(b, HEX);
+  Serial.println(".");
+  
+  BAT_CHECK_EXIT:
   
   delay(500);
+  
+  switch (b) {
+    case 0xAA:
+      Serial.println("BAT successful!");
+      break;
+    case 0xFC:
+    case 0xFD:
+      Serial.println("BAT failed: retrying...");
+      goto BAT_CHECK;
+      break;
+    case 0xFE:
+      Serial.println("device requested resend: resetting...");
+      goto BAT_CHECK;
+      break;
+    default:
+      Serial.println("invalid response from device: resetting...");
+      goto BAT_CHECK;
+      break;
+  }
+  
+  err_count = 0;
+  
+  // test connection
+  Serial.println("sending echo request");
+  
+  RESPONSE_CHECK:
+
+  TIMEOUT(write_as_host(0xEE), 1000,
+    Serial.println("write timed out: retrying...");
+    goto RESPONSE_CHECK;
+  )
+  
+  TIMEOUT(read_as_host(&b), 1000,
+    Serial.println("recieved nothing... ... retrying...");
+    goto RESPONSE_CHECK;
+  )
+  
+  Serial.print("got response ");
+  Serial.println(b, HEX);
+  
+  switch (b) {
+    case 0xEE:
+      Serial.println("device responded successfully to echo request!");
+      break;
+    case 0xFE:
+      err_count++;
+      Serial.print("device requesting resend (");
+      Serial.print(err_count, DEC);
+      Serial.println(" / 10)");
+      
+      if (err_count >= 10) {
+        Serial.println("device failed to respond to echo request.");
+        Serial.println("NOTICE: device may not respond to host.");
+        return;
+      }
+      
+      delay(500);
+      goto RESPONSE_CHECK;
+    default:
+      err_count++;
+      Serial.print("device failed to respond (");
+      Serial.print(err_count, DEC);
+      Serial.println(" / 10)");
+      
+      if (err_count >= 10) {
+        Serial.println("device failed to respond to echo request");
+        Serial.println("NOTICE: device may not respond to host");
+        return;
+      }
+      
+      delay(500);
+      goto RESPONSE_CHECK;
+  }
+}
+
+char* print_key(int _k) {
+  switch (_k) {
+    case KEY_A:
+      return "A";
+      break;
+    case KEY_B:
+      return "B";
+      break;
+    case KEY_C:
+      return "C";
+      break;
+    case KEY_D:
+      return "D";
+      break;
+    case KEY_E:
+      return "E";
+      break;
+    case KEY_F:
+      return "F";
+      break;
+    case KEY_G:
+      return "G";
+      break;
+    case KEY_H:
+      return "H";
+      break;
+    case KEY_I:
+      return "I";
+      break;
+    case KEY_J:
+      return "J";
+      break;
+    case KEY_K:
+      return "K";
+      break;
+    case KEY_L:
+      return "L";
+      break;
+    case KEY_M:
+      return "M";
+      break;
+    case KEY_N:
+      return "N";
+      break;
+    case KEY_O:
+      return "O";
+      break;
+    case KEY_P:
+      return "P";
+      break;
+    case KEY_Q:
+      return "Q";
+      break;
+    case KEY_R:
+      return "R";
+      break;
+    case KEY_S:
+      return "S";
+      break;
+    case KEY_T:
+      return "T";
+      break;
+    case KEY_U:
+      return "U";
+      break;
+    case KEY_V:
+      return "V";
+      break;
+    case KEY_W:
+      return "W";
+      break;
+    case KEY_X:
+      return "X";
+      break;
+    case KEY_Y:
+      return "Y";
+      break;
+    case KEY_Z:
+      return "Z";
+      break;
+    case KEY_SPACE:
+      return " ";
+    case KEY_DOT:
+      return ".";
+      break;
+    case KEY_COMMA:
+      return ",";
+    default:
+      return "U";
+      break;
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  BYTE b = 0;
+  
+  while (read_as_host(&b));
+  
+  switch (b) {
+    case 0xF0:
+      while (read_as_host(&b));
+      Serial.print(print_key(b));
+      Serial.println(" break");
+      break;
+    default:
+      Serial.print(print_key(b));
+      Serial.println(" make");
+      if (b == KEY_BKSPC) {
+        lcd_cursor_pos--;
+        
+        if (lcd_cursor_pos < 0) {
+          lcd_cursor_pos = 0;
+          if (--lcd_line < 0) lcd_line = 0;
+          else lcd_cursor_pos = 15;
+        }
+        
+        lcd.setCursor(lcd_cursor_pos, lcd_line);
+        lcd.print(" ");
+        lcd.setCursor(lcd_cursor_pos, lcd_line);
+      } else {
+        lcd.setCursor(lcd_cursor_pos, lcd_line);
+        lcd.print(print_key(b));
+        lcd_cursor_pos++;
+      }
+
+      if (lcd_cursor_pos > 15) {
+        lcd_cursor_pos = 0;
+        if (++lcd_line > 1)
+          lcd_line = 0,
+          lcd.clear();
+      }
+
+      break;
+  }
+  
+  Serial.print("recieved ");
+  Serial.println(b, HEX);
 }
