@@ -1,3 +1,6 @@
+#ifndef __ARD_PS2_DEVICE_H__
+#define __ARD_PS2_DEVICE_H__
+
 int P_CLK;
 int P_DTA;
 
@@ -19,19 +22,21 @@ typedef unsigned long time_t;
       CODE\
     }
 
-#define SEND_LOW()\
+#define SEND_LOW() {\
   dsp(P_DTA);\
   delayMicroseconds(CLK_HAF_TIME);\
   dsp(P_CLK); delayMicroseconds(CLK_FUL_TIME);\
-  enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);
+  enp(P_CLK); delayMicroseconds(CLK_HAF_TIME);\
+}
 
-#define SEND_HIGH()\
+#define SEND_HIGH() {\
   enp(P_DTA);\
   delayMicroseconds(CLK_HAF_TIME);\
   dsp(P_CLK);\
   delayMicroseconds(CLK_FUL_TIME);\
   enp(P_CLK);\
-  delayMicroseconds(CLK_HAF_TIME);}
+  delayMicroseconds(CLK_HAF_TIME);\
+}
 
 // keys with single-byte scancodes
 enum {
@@ -239,3 +244,5 @@ char* get_char(int _k) {
       break;
   }
 }
+
+#endif
