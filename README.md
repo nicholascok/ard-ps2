@@ -1,29 +1,29 @@
 # ard-ps2
-ard-ps2 can be used to read (write) data from (to) a PS/2 keyboard or mouse.  
+ard-ps2 can be used to read (write) data from (to) a (many) PS/2 keyboard(s).  
+(as of writing we are only able to read from one physical keyboard at a time, though it wouldn't be difficult to extend this functionality yourself, should it be necessary)  
 
----
-### <p align="center">Usage</p>
----
-To start, initialise the pins with the following:  
-`init(<DATA PIN #>, <CLOCK PIN #>);`  
+### Usage
+A PS/2 keyboard can be initialised with `struct ps2_device ps2_init_device(<DATA PIN #>, <CLOCK PIN #>)`, and the arduino can be initialised as a host with `void ps2_init_host(<DATA PIN #>, <CLOCK PIN #>)`.  
   
-Now, you there are two possibilities: the arduino can act as the device (probably a keyboard or mouse), or the arduino can act as the host (communicating with a peripheral).  
+For brevity's sake, here is a list of functions:  
+  
+**Note:** In the following descriptions, *device* refers to a pseudo-keyboard, simulated as output from the arduino, and *keyboard* refers to the physical keyboard device being read by the arduino.
 
-#### **ARDUINO AS DEVICE**
-when the arduino is acting as the device (ps2_device.ino), you can send a key make code with the following:  
-`send_key_make(<KEY>);`  
-  
-Similarly, you can send a key break code as follows:  
-`send_key_break(<KEY>);`  
-  
-You can also send a keypress (make, delay, then break) as follows:  
-`send_key_press(<KEY>, <DELAY>);`  
-  
-Where `<DELAY>` is the delay between sending make and break codes for the key `<KEY>`.  
+| FUNCTION | DESCRIPTION |
+| -------- | ----------- |
+| `int hread(BYTE* <B>)` | reads a byte from the keyboard |
+| `int hwrite(BYTE <B>)` | writes a byte to the keyboard |
+| `int dwrite(struct ps2_device <DEV>, BYTE <B>)` | writes a byte over a device |
+| `int dsend_key_make(struct ps2_device <DEV>, int <KEY>)` | sends the make code for a key to the specified device |
+| `int dsend_key_break(struct ps2_device <DEV>, int <KEY>)` | sends the break code for a key to the specified device |
+| `int dsend_key_press(struct ps2_device <DEV>, int <KEY>, int <MILLIS>)` | sends the make code for a key, waits, then sends the break code to the specified device |
+| `int init_keyboard(struct ps2_device <DEV>)` | sends 0xAA over a device to signal a Basic Assurance Test (BAT) pass (necessary within 500ms of power on for device to be recognised) |
+| `bool probe_status(void)` | requests the keyboard readminister its Basic Assurance Test (BAT), and returns true if it was successful |
+| `bool hsend_echo(void)` | sends an echo request to the keyboard and returns true if the device sucessfully responds |
   
 The value of `<KEY>` can be any of the following:  
   
-|           |           |           |           |           |
+|           |           | KEYS      |           |           |
 | --------- | --------- | --------- | --------- | --------- |
 | KEY_ESC   | KEY_6     | KEY_CAPLK | KEY_M     | KEY_KP3   |
 | KEY_F1    | KEY_7     | KEY_A     | KEY_COMMA | KEY_KP0   |
@@ -46,30 +46,3 @@ The value of `<KEY>` can be any of the following:
 | KEY_4     | KEY_RSQR  | KEY_B     | KEY_KP1   | KEY_KPDIV |
 | KEY_5     | KEY_BKSLH | KEY_N     | KEY_KP2   | KEY_PRINT |
 | KEY_BREAK |           |           |           |           |
-|           |           |           |           |           |
-  
-You can also send data directly using the following syntax:  
-`write(<BYTE>);`  
-  
-Where `<BYTE>` is the single byte of data to be sent to the host.
-
-#### **ARDUINO AS HOST**
-When the arduino acts as a host (ps2_host.ino) it can read data from a peripheral using the following syntax:  
-`read(<PTR>);`  
-  
-Where `<PTR>` is a pointer to store the result (one byte). After a successful read, this function returns 0, otherwise a negative error code is returned.  
-  
-If the host wishes to send data to the peripheral, the following syntax is used:  
-`write(<BYTE>);`  
-  
-Where `<BYTE>` is the single byte of data to be written. After a successful write, this function returns 0, otherwise a negative error code is returned.  
-  
-Using the following syntax, the host can send an echo request to the peripheral:  
-`send_echo();`  
-  
-This function returns 1 if the peripheral successfully responded to the echo request, and 0 otherwise.  
-  
-Finally, the following command can be used to request that the peripheral re-administer its Basic Assurance Test (BAT):  
-`probe_status();`  
-  
-Similarly, this function returns 1 if the BAT is successful, and 0 if either the test failed or the device failed to respond.
