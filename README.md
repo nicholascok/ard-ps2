@@ -1,23 +1,20 @@
-# ard-ps2
-ard-ps2 can be used to read (write) data from (to) a (many) PS/2 keyboard(s).  
-(as of writing we are only able to read from one physical keyboard at a time, though it wouldn't be difficult to extend this functionality yourself, should it be necessary)  
-
+# Arduino PS/2
 ### Usage
-A PS/2 keyboard can be initialised with `struct ps2_device ps2_init_device(<DATA PIN #>, <CLOCK PIN #>)`, and the arduino can be initialised as a host with `void ps2_init_host(<DATA PIN #>, <CLOCK PIN #>)`.  
+A PS/2 keyboard can be initialised with `struct ps2_device <my_device_name> = ps2_init_device(<data pin>, <clock pin>)`, and the arduino can be initialised as a host with `ps2_init_host(<data pin>, <clock pin>)`.  
   
 For brevity's sake, here is a list of functions:  
   
-**Note:** In the following descriptions, *device* refers to a pseudo-keyboard, simulated as output from the arduino, and *keyboard* refers to the physical keyboard device being read by the arduino.
+**Note:** In the following descriptions, *device* refers to a simulated keyboard (PS/2 output from the arduino), and *keyboard* refers to the physical keyboard being read by the arduino.
 
 | FUNCTION | DESCRIPTION |
 | -------- | ----------- |
 | `int hread(BYTE* <B>)` | reads a byte from the keyboard |
 | `int hwrite(BYTE <B>)` | writes a byte to the keyboard |
-| `int dwrite(struct ps2_device <DEV>, BYTE <B>)` | writes a byte over a device |
-| `int dsend_key_make(struct ps2_device <DEV>, int <KEY>)` | sends the make code for a key to the specified device |
-| `int dsend_key_break(struct ps2_device <DEV>, int <KEY>)` | sends the break code for a key to the specified device |
-| `int dsend_key_press(struct ps2_device <DEV>, int <KEY>, int <MILLIS>)` | sends the make code for a key, waits, then sends the break code to the specified device |
-| `int init_keyboard(struct ps2_device <DEV>)` | sends 0xAA over a device to signal a Basic Assurance Test (BAT) pass (necessary within 500ms of power on for device to be recognised) |
+| `int dwrite(struct ps2_device <DEV>, BYTE <B>)` | writes a byte to a device |
+| `int dsend_key_make(struct ps2_device <DEV>, int <KEY>)` | sends the make code for a key to a device |
+| `int dsend_key_break(struct ps2_device <DEV>, int <KEY>)` | sends the break code for a key to a device |
+| `int dsend_key_press(struct ps2_device <DEV>, int <KEY>, int <MILLIS>)` | sends the make and break code for a key, with a delay to a device |
+| `int init_keyboard(struct ps2_device <DEV>)` | sends 0xAA to a device to signal a Basic Assurance Test (BAT) pass (necessary within 500ms of power on for device to be recognised) |
 | `bool probe_status(void)` | requests the keyboard readminister its Basic Assurance Test (BAT), and returns true if it was successful |
 | `bool hsend_echo(void)` | sends an echo request to the keyboard and returns true if the device sucessfully responds |
   
