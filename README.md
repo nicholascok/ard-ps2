@@ -1,8 +1,8 @@
-# Arduino PS/2
+# Arduino PS/2 Keyboard Interface
 
 ### Usage
 
-A PS/2 keyboard input and a keyboard outputs can be initialised as follows:
+A PS/2 keyboard input and two outputs can be initialised as follows:
 ```
 struct ps2_device device_A = ps2_init_device(DEV1_DATA_PIN, DEV1_CLOCK_PIN);
 struct ps2_device device_B = ps2_init_device(DEV2_DATA_PIN, DEV2_CLOCK_PIN);
@@ -11,7 +11,7 @@ ps2_init_host(HOST_DATA_PIN, HOST_CLOCK_PIN); /* for now only one input is possi
 
 ### Functions
 
-**Note:** In the following descriptions, *endpoint* refers to any device that is interpreting data output from the arduino, and *keyboard* refers to any PS/2 keyboard input device.
+**Note:** In the following descriptions, *endpoint* refers to any device that is interpreting data output from the arduino, and *keyboard* refers to any PS/2 input device (keyboard).
 
 | FUNCTION | DESCRIPTION |
 | -------- | ----------- |
